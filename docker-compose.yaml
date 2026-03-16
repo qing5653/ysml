@@ -1,0 +1,22 @@
+services:
+  bearing-defect-detection:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: bearing-defect:latest
+    container_name: bearing_detection_dev
+    runtime: nvidia                         # 明确指定运行时
+    environment:
+      - DISPLAY=${DISPLAY}
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+      - QT_X11_NO_MITSHM=1
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix
+      - ./workspace:/workspace
+    network_mode: host
+    stdin_open: true
+    tty: true
+    user: "qing"
+    working_dir: /workspace
+    # 移除 deploy 部分，使用 runtime 字段

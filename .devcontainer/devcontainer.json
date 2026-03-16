@@ -1,0 +1,31 @@
+{
+    "name": "Bearing Defect Detection",
+    "dockerComposeFile": "../docker-compose.yaml",
+    "service": "bearing-defect-detection",
+    "workspaceFolder": "/workspace",
+    "shutdownAction": "stopCompose",
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "ms-python.python",
+                "ms-toolsai.jupyter",
+                "njpwerner.autodocstring",
+                "ms-python.vscode-pylance",
+                "github.copilot",
+                "eamodio.gitlens",
+                "donjayamanne.githistory"
+            ],
+            "settings": {
+                "terminal.integrated.defaultProfile.linux": "bash",
+                "terminal.integrated.profiles.linux": {
+                    "bash": {
+                        "path": "bash",
+                        "args": ["-l"]
+                    }
+                }
+            }
+        }
+    },
+    "remoteUser": "qing",
+    "postCreateCommand": ""
+}
