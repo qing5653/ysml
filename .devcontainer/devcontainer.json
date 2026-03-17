@@ -1,8 +1,8 @@
 {
     "name": "Bearing Defect Detection",
-    "dockerComposeFile": "../docker-compose.yaml",
+    "dockerComposeFile": "docker-compose.yaml",
     "service": "bearing-defect-detection",
-    "workspaceFolder": "/workspace",
+    "workspaceFolder": "/ysml",
     "shutdownAction": "stopCompose",
     "customizations": {
         "vscode": {
