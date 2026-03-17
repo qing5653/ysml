@@ -1,0 +1,22 @@
+services:
+  bearing-defect-detection:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: bearing-defect:latest
+    container_name: bearing_detection_dev
+    runtime: nvidia  # 启用 NVIDIA GPU 支持
+    environment:
+      - DISPLAY=${DISPLAY}
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+      - QT_X11_NO_MITSHM=1
+      - XDG_RUNTIME_DIR=/tmp/runtime-${USER}
+    volumes:
+      - /tmp/.X11-unix:/tmp/.X11-unix
+      - ../../ysml:/ysml   # 宿主机代码目录
+    network_mode: host
+    stdin_open: true
+    tty: true
+    user: "qing"
+    working_dir: /ysml
