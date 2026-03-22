@@ -1,0 +1,8 @@
+# Update paths and class names before training
+path: datasets/bearing_defect
+train: images/train
+val: images/val
+test: images/test
+
+names:
+  0: defect

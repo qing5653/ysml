@@ -79,8 +79,7 @@ RUN pip install --user --no-cache-dir \
 
 # 启用 bash-completion（需要添加到 .bashrc）
 RUN echo 'if [ -f /etc/bash_completion ]; then . /etc/bash_completion; fi' >> /home/$USERNAME/.bashrc \
-    && echo 'export QT_QPA_PLATFORM_PLUGIN_PATH=/home/qing/.local/lib/python3.10/site-packages/PyQt5/Qt5/plugins' >> /home/$USERNAME/.bashrc \
-    && echo 'export QT_PLUGIN_PATH=/home/qing/.local/lib/python3.10/site-packages/PyQt5/Qt5/plugins' >> /home/$USERNAME/.bashrc \
+    && echo 'if command -v python >/dev/null 2>&1; then QT_PLUGIN_DIR=$(python -c "import os,PyQt5;print(os.path.join(os.path.dirname(PyQt5.__file__),\"Qt5\",\"plugins\"))" 2>/dev/null); if [ -n "$QT_PLUGIN_DIR" ]; then export QT_QPA_PLATFORM_PLUGIN_PATH="$QT_PLUGIN_DIR"; export QT_PLUGIN_PATH="$QT_PLUGIN_DIR"; fi; fi' >> /home/$USERNAME/.bashrc \
     && echo 'export PS1="\u@\h:\w\$ "' >> /home/$USERNAME/.bashrc
 
 WORKDIR /ysml

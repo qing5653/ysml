@@ -1,0 +1,12 @@
+numpy<2
+ultralytics>=8.3.0
+pyyaml
+opencv-python-headless
+pyqt5
+scikit-image
+pandas
+matplotlib
+seaborn
+tqdm
+jupyter
+comet_ml

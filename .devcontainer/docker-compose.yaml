@@ -14,7 +14,7 @@ services:
       - XDG_RUNTIME_DIR=/tmp/runtime-${USER}
     volumes:
       - /tmp/.X11-unix:/tmp/.X11-unix
-      - ../../ysml:/ysml   # 宿主机代码目录
+      - ..:/ysml   # 宿主机代码目录（相对 .devcontainer）
     network_mode: host
     stdin_open: true
     tty: true

@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.so
+
+# Virtual env
+.venv/
+venv/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# YOLO/Ultralytics outputs
+runs/
+
+# Data and model artifacts
+data/raw/
+data/interim/
+data/processed/
+models/weights/
+models/exports/
+
+# OS/IDE
+.DS_Store
+.vscode/

@@ -1,5 +1,6 @@
 import os
 import sys
+from pathlib import Path
 
 # ========== 第 1 步：设置 Qt 插件路径（必须在导入任何其他库之前） ==========
 try:
@@ -22,13 +23,6 @@ if app is None:
 import torch
 import cv2
 import numpy as np
-import skimage
-import pandas as pd
-import matplotlib
-import seaborn as sns
-import tqdm
-import comet_ml
-from PIL import Image
 
 print("所有基础库导入成功，开始功能测试...\n")
 
@@ -47,9 +41,12 @@ def check_cuda():
 def check_yolo_inference():
     try:
         from ultralytics import YOLO
-        model_name = 'yolo11n.pt'
-        print(f"正在下载/加载 {model_name} ...")
-        model = YOLO(model_name)
+        model_path = Path(__file__).resolve().with_name('yolo11n.pt')
+        if not model_path.exists():
+            return False, f"未找到模型权重: {model_path}"
+
+        print(f"正在加载本地模型: {model_path}")
+        model = YOLO(str(model_path))
         dummy_img = np.random.randint(0, 255, (640, 640, 3), dtype=np.uint8)
         results = model(dummy_img, verbose=False)
         if results and len(results) > 0:
