@@ -11,7 +11,7 @@ services:
       - NVIDIA_VISIBLE_DEVICES=all
       - NVIDIA_DRIVER_CAPABILITIES=compute,utility
       - QT_X11_NO_MITSHM=1
-      - XDG_RUNTIME_DIR=/tmp/runtime-${USER}
+      - XDG_RUNTIME_DIR=/tmp/runtime-qing
     volumes:
       - /tmp/.X11-unix:/tmp/.X11-unix
       - ..:/ysml   # 宿主机代码目录（相对 .devcontainer）

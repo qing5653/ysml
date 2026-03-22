@@ -27,5 +27,5 @@
         }
     },
     "remoteUser": "qing",
-    "postCreateCommand": ""
+    "postCreateCommand": "mkdir -p /tmp/runtime-qing && chmod 700 /tmp/runtime-qing"
 }
