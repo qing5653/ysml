@@ -1,8 +1,13 @@
-# Update paths and class names before training
-path: datasets/bearing_defect
-train: images/train
-val: images/val
-test: images/test
+# 默认使用 NEU-DET 原始标注数据。
+# 如执行 scripts/prepare_dataset.py 生成增强数据，可将 path 改为 datasets/bearing_defect_aug。
+path: data/fa031-main/NEU-DET
+train: train/images
+val: valid/images
 
 names:
-  0: defect
+  0: crazing
+  1: inclusion
+  2: patches
+  3: pitted_surface
+  4: rolled-in_scale
+  5: scratches

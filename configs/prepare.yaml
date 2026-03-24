@@ -1,0 +1,27 @@
+source:
+  root: data/fa031-main/NEU-DET
+  train_images: train/images
+  train_labels: train/labels
+  val_images: valid/images
+  val_labels: valid/labels
+
+target:
+  root: datasets/bearing_defect_aug
+
+augmentation:
+  rotate_90: true
+  brightness: true
+  mixup: true
+  mixup_alpha: 0.3
+  brightness_gain_min: 0.7
+  brightness_gain_max: 1.35
+  copy_original: true
+
+spot_guided:
+  enabled: true
+  slic_segments: 200
+  slic_compactness: 12.0
+  glcm_distances: [1, 2]
+  glcm_angles: [0, 0.785398, 1.570796]
+  entropy_threshold_quantile: 0.75
+  blend_alpha: 0.45

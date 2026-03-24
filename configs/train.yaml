@@ -1,9 +1,21 @@
 model: src/yolo11n.pt
-data: configs/dataset.yaml
+data: configs/dataset_merged.yaml
 epochs: 100
 imgsz: 640
 batch: 16
 device: 0
 project: experiments
-name: yolo11_baseline
+name: yolo11_spot_bifpn
 workers: 8
+
+# 数据增强与候选区域引导
+use_prepared_dataset: false
+prepared_dataset_yaml: configs/dataset_prepared.yaml
+
+# 自适应损失: 基于类别频次自动调整分类分支参数
+adaptive_loss:
+  enabled: true
+  cls_gain_min: 0.6
+  cls_gain_max: 2.0
+  fl_gamma_min: 1.0
+  fl_gamma_max: 2.5

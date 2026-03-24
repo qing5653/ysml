@@ -14,13 +14,17 @@ venv/
 
 # YOLO/Ultralytics outputs
 runs/
+experiments/
 
 # Data and model artifacts
 data/raw/
 data/interim/
 data/processed/
+data/**/*.cache
+data/**/*.zip
 models/weights/
 models/exports/
+datasets/merged_detect/
 
 # OS/IDE
 .DS_Store

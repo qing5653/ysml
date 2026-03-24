@@ -1,0 +1,14 @@
+sources:
+  - name: neu_det
+    dataset_yaml: configs/dataset.yaml
+
+  - name: quality_control367
+    dataset_yaml: configs/dataset_quality_control367.yaml
+
+output:
+  dataset_root: datasets/merged_detect
+  dataset_yaml: configs/dataset_merged.yaml
+
+options:
+  clean_output: true
+  copy_unlabeled_images: false

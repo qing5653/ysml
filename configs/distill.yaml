@@ -1,0 +1,18 @@
+teacher_model: experiments/yolo11_spot_bifpn/weights/best.pt
+student_model: src/yolo11n.pt
+base_data: configs/dataset.yaml
+distill_data: datasets/bearing_defect_distill/data.yaml
+
+teacher_predict:
+  conf: 0.15
+  iou: 0.55
+  imgsz: 640
+
+train:
+  epochs: 60
+  imgsz: 640
+  batch: 16
+  device: 0
+  workers: 8
+  project: experiments
+  name: yolo11_student_distill

@@ -1,11 +1,13 @@
 from pathlib import Path
 
 from ultralytics import YOLO
+import yaml
 
 
 def main() -> None:
     root = Path(__file__).resolve().parents[1]
-    best_ckpt = root / "experiments" / "yolo11_baseline" / "weights" / "best.pt"
+    train_cfg = yaml.safe_load((root / "configs" / "train.yaml").read_text(encoding="utf-8"))
+    best_ckpt = root / "experiments" / train_cfg["name"] / "weights" / "best.pt"
     if not best_ckpt.exists():
         raise FileNotFoundError(f"未找到待导出权重: {best_ckpt}")
 

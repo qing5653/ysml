@@ -1,0 +1,13 @@
+input_model: experiments/yolo11_student_distill/weights/best.pt
+output_model: models/weights/yolo11_student_pruned.pt
+channel_prune_ratio: 0.3
+
+finetune:
+  data: configs/dataset.yaml
+  epochs: 30
+  imgsz: 640
+  batch: 16
+  device: 0
+  workers: 8
+  project: experiments
+  name: yolo11_student_pruned_finetune

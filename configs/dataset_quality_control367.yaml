@@ -1,0 +1,7 @@
+# 仅在 Quality-Control367 完整训练集（含 labels）整理完成后启用
+path: data/Quality-Control367-main
+train: train/images
+val: val/images
+
+names:
+  0: defect
