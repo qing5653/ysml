@@ -24,7 +24,6 @@ data/**/*.cache
 data/**/*.zip
 models/weights/
 models/exports/
-datasets/merged_detect/
 
 # OS/IDE
 .DS_Store

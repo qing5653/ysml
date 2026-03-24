@@ -1,12 +1,12 @@
 model: src/yolo11n.pt
-data: configs/dataset_merged.yaml
+data: configs/dataset.yaml
 epochs: 100
 imgsz: 640
 batch: 16
 device: 0
 project: experiments
 name: yolo11_spot_bifpn
-workers: 8
+workers: 0
 
 # 数据增强与候选区域引导
 use_prepared_dataset: false
