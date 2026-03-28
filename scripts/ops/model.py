@@ -8,13 +8,8 @@ import cv2
 from ultralytics.cfg import DEFAULT_CFG_DICT
 from ultralytics import YOLO
 
-from scripts.ops.common import ROOT, load_yaml
+from scripts.ops.common import IMAGE_EXTS, ROOT, load_yaml, resolve_active_data_cfg_path, resolve_latest_weight
 from src.yolo11_project.spot_guided import SpotGuidedConfig, apply_spot_guided_attention
-
-
-def _resolve_active_data_cfg_path(train_cfg: dict) -> Path:
-    data_key = "prepared_dataset_yaml" if train_cfg.get("use_prepared_dataset", False) else "data"
-    return ROOT / train_cfg[data_key]
 
 
 def _compute_class_distribution(dataset_yaml: Path, project_root: Path) -> list[int]:
@@ -69,22 +64,12 @@ def _adaptive_loss_kwargs(train_cfg: dict, dataset_yaml: Path, project_root: Pat
 
 
 def _resolve_latest_best_ckpt(exp_root: Path, run_name: str) -> Path:
-    exact = exp_root / run_name / "weights" / "best.pt"
-    if exact.exists():
-        return exact
-
-    candidates = []
-    for run_dir in exp_root.glob(f"{run_name}*"):
-        ckpt = run_dir / "weights" / "best.pt"
-        if ckpt.exists():
-            candidates.append(ckpt)
-
-    if not candidates:
-        raise FileNotFoundError(f"未找到验证权重: {exact} (以及 {run_name}* 下的 best.pt)")
-
-    candidates.sort(key=lambda p: p.stat().st_mtime, reverse=True)
-    selected = candidates[0]
-    print(f"自动选择最新权重: {selected}")
+    selected = resolve_latest_weight(exp_root, run_name, "best.pt")
+    if selected is None:
+        expected = exp_root / run_name / "weights" / "best.pt"
+        raise FileNotFoundError(f"未找到验证权重: {expected} (以及 {run_name}* 下的 best.pt)")
+    if selected != exp_root / run_name / "weights" / "best.pt":
+        print(f"自动选择最新权重: {selected}")
     return selected
 
 
@@ -94,7 +79,7 @@ def cmd_train() -> None:
     if not model_path.exists():
         raise FileNotFoundError(f"未找到模型权重: {model_path}")
 
-    data_path = _resolve_active_data_cfg_path(cfg)
+    data_path = resolve_active_data_cfg_path(cfg)
     if not data_path.exists():
         raise FileNotFoundError(f"未找到数据集配置: {data_path}")
 
@@ -137,7 +122,7 @@ def cmd_val() -> None:
     cfg = load_yaml(ROOT / "configs" / "train.yaml")
     ckpt_path = _resolve_latest_best_ckpt(ROOT / "experiments", str(cfg["name"]))
 
-    data_path = _resolve_active_data_cfg_path(cfg)
+    data_path = resolve_active_data_cfg_path(cfg)
     if not data_path.exists():
         raise FileNotFoundError(f"未找到数据集配置: {data_path}")
 
@@ -181,7 +166,7 @@ def cmd_predict() -> None:
     best_ckpt = _resolve_latest_best_ckpt(ROOT / "experiments", str(train_cfg["name"]))
     model_path = best_ckpt if best_ckpt.exists() else ROOT / train_cfg["model"]
 
-    data_cfg_path = _resolve_active_data_cfg_path(train_cfg)
+    data_cfg_path = resolve_active_data_cfg_path(train_cfg)
     data_cfg = load_yaml(data_cfg_path)
     source = ROOT / data_cfg["path"] / data_cfg["val"]
 
@@ -207,7 +192,7 @@ def cmd_predict() -> None:
         raise FileNotFoundError(f"未找到推理输入目录: {source}")
 
     model = YOLO(str(model_path))
-    image_paths = [p for p in sorted(source.glob("*")) if p.suffix.lower() in {".jpg", ".jpeg", ".png", ".bmp"}]
+    image_paths = [p for p in sorted(source.glob("*")) if p.suffix.lower() in IMAGE_EXTS]
     if not image_paths:
         raise RuntimeError(f"目录中没有图像文件: {source}")
 
@@ -238,7 +223,7 @@ def cmd_benchmark() -> None:
     if not model_path.exists():
         raise FileNotFoundError(f"未找到基准模型: {model_path}")
 
-    data_cfg_path = _resolve_active_data_cfg_path(train_cfg)
+    data_cfg_path = resolve_active_data_cfg_path(train_cfg)
     data_cfg = load_yaml(data_cfg_path)
     source_split = str(benchmark_cfg.get("source_split", "val"))
     source_rel = data_cfg.get(source_split)
@@ -267,7 +252,7 @@ def cmd_benchmark() -> None:
         blend_alpha=float(sg.get("blend_alpha", 0.45)),
     )
 
-    image_paths = [p for p in sorted(source.glob("*")) if p.suffix.lower() in {".jpg", ".jpeg", ".png", ".bmp"}]
+    image_paths = [p for p in sorted(source.glob("*")) if p.suffix.lower() in IMAGE_EXTS]
     if not image_paths:
         raise RuntimeError(f"目录中没有图像文件: {source}")
     if sample_limit > 0:

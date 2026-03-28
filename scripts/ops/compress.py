@@ -10,6 +10,7 @@ from ultralytics import YOLO
 import yaml
 
 from scripts.ops.common import (
+    IMAGE_EXTS,
     ROOT,
     BoxLabel,
     apply_channel_prune,
@@ -17,11 +18,10 @@ from scripts.ops.common import (
     load_yaml,
     merge_labels,
     read_labels_box,
+    resolve_dataset_root,
+    resolve_latest_weight,
     write_labels_box,
 )
-
-
-IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".bmp"}
 
 
 def _is_shm_like_error(exc: Exception) -> bool:
@@ -48,24 +48,6 @@ def _train_with_workers_fallback(model: YOLO, train_kwargs: dict, stage_name: st
             model.train(**fallback_kwargs)
             return
         raise
-
-
-def _resolve_latest_weight(project_dir: Path, run_name: str, weight_name: str) -> Path | None:
-    exact = project_dir / run_name / "weights" / weight_name
-    if exact.exists():
-        return exact
-
-    candidates: list[Path] = []
-    for run_dir in project_dir.glob(f"{run_name}*"):
-        ckpt = run_dir / "weights" / weight_name
-        if ckpt.exists():
-            candidates.append(ckpt)
-
-    if not candidates:
-        return None
-
-    candidates.sort(key=lambda p: p.stat().st_mtime, reverse=True)
-    return candidates[0]
 
 
 def _prepare_distill_dataset(cfg: dict, base_cfg: dict, base_root: Path, distill_yaml_path: Path) -> None:
@@ -248,9 +230,7 @@ def cmd_distill() -> None:
         raise FileNotFoundError(f"未找到基础数据配置: {base_data_path}")
 
     base_cfg = load_yaml(base_data_path)
-    base_root = ROOT / base_cfg["path"]
-    if not base_root.exists():
-        base_root = Path(base_cfg["path"])
+    base_root = resolve_dataset_root(base_cfg)
 
     distill_yaml_path = ROOT / cfg["distill_data"]
     out_root = distill_yaml_path.parent
@@ -272,7 +252,7 @@ def cmd_distill() -> None:
 
     init_weight = student_path
     if bool(train_cfg.get("warm_start_from_last", True)):
-        latest_last = _resolve_latest_weight(train_project, run_name, "last.pt")
+        latest_last = resolve_latest_weight(train_project, run_name, "last.pt")
         if latest_last is not None:
             init_weight = latest_last
             print(f"distill 热启动: {latest_last}")
@@ -341,7 +321,7 @@ def cmd_prune() -> None:
 
     resume_weight: Path | None = None
     if bool(ft.get("warm_start_from_last", True)):
-        resume_weight = _resolve_latest_weight(ft_project, ft_name, "last.pt")
+        resume_weight = resolve_latest_weight(ft_project, ft_name, "last.pt")
 
     if resume_weight is not None:
         print(f"prune-finetune 热启动: {resume_weight}")

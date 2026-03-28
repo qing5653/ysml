@@ -12,7 +12,7 @@ from scripts.ops.compress import cmd_distill, cmd_prune
 from scripts.ops.data import cmd_check, cmd_prepare
 from scripts.ops.model import cmd_benchmark, cmd_export, cmd_predict, cmd_train, cmd_val
 from scripts.ops.report import cmd_report
-from scripts.ops.system import cmd_clean
+from scripts.ops.system import cmd_clean, cmd_doctor
 
 
 COMMANDS = {
@@ -27,6 +27,7 @@ COMMANDS = {
     "distill": cmd_distill,
     "prune": cmd_prune,
     "clean": cmd_clean,
+    "doctor": cmd_doctor,
 }
 
 

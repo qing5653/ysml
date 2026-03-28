@@ -7,11 +7,8 @@ import shutil
 import cv2
 import numpy as np
 
-from scripts.ops.common import ROOT, YoloObject, load_yaml, read_labels_yolo, write_labels_yolo
+from scripts.ops.common import IMAGE_EXTS, ROOT, YoloObject, load_yaml, read_labels_yolo, resolve_dataset_root, write_labels_yolo
 from src.yolo11_project.spot_guided import SpotGuidedConfig, apply_spot_guided_attention
-
-
-IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff"}
 
 
 def _count_images(path: Path) -> int:
@@ -159,9 +156,7 @@ def cmd_check() -> None:
         raise FileNotFoundError(f"训练配置中指定的数据集文件不存在: {active_yaml}")
 
     active_cfg = load_yaml(active_yaml)
-    active_root = ROOT / active_cfg["path"]
-    if not active_root.exists():
-        active_root = Path(active_cfg["path"])
+    active_root = resolve_dataset_root(active_cfg)
 
     registry = load_yaml(ROOT / "configs" / "datasets_registry.yaml")
 

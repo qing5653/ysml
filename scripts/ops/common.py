@@ -14,6 +14,9 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 
+IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff"}
+
+
 @dataclass
 class YoloObject:
     class_id: int
@@ -37,6 +40,36 @@ def load_yaml(path: Path) -> dict:
     if not path.exists():
         raise FileNotFoundError(f"未找到配置文件: {path}")
     return yaml.safe_load(path.read_text(encoding="utf-8"))
+
+
+def resolve_active_data_cfg_path(train_cfg: dict) -> Path:
+    data_key = "prepared_dataset_yaml" if train_cfg.get("use_prepared_dataset", False) else "data"
+    return ROOT / str(train_cfg[data_key])
+
+
+def resolve_dataset_root(data_cfg: dict) -> Path:
+    root = ROOT / str(data_cfg["path"])
+    if root.exists():
+        return root
+    return Path(str(data_cfg["path"]))
+
+
+def resolve_latest_weight(project_dir: Path, run_name: str, weight_name: str = "best.pt") -> Path | None:
+    exact = project_dir / run_name / "weights" / weight_name
+    if exact.exists():
+        return exact
+
+    candidates: list[Path] = []
+    for run_dir in project_dir.glob(f"{run_name}*"):
+        ckpt = run_dir / "weights" / weight_name
+        if ckpt.exists():
+            candidates.append(ckpt)
+
+    if not candidates:
+        return None
+
+    candidates.sort(key=lambda p: p.stat().st_mtime, reverse=True)
+    return candidates[0]
 
 
 def read_labels_yolo(label_path: Path) -> list[YoloObject]:
