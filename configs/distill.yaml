@@ -3,6 +3,12 @@ student_model: src/yolo11n.pt
 base_data: configs/dataset.yaml
 distill_data: datasets/bearing_defect_distill/data.yaml
 
+# 为 true 时，若 distill_data 已存在则复用，避免每次重复生成伪标注数据。
+reuse_generated_data: true
+
+# 为 true 时，在蒸馏阶段禁用 Comet 自动日志，避免无 API Key 的噪声警告。
+disable_comet: true
+
 teacher_predict:
   conf: 0.15
   iou: 0.55
@@ -13,6 +19,8 @@ train:
   imgsz: 640
   batch: 16
   device: 0
-  workers: 8
+  workers: 0
   project: experiments
   name: yolo11_student_distill
+  # 为 true 时，自动尝试从 experiments/<name*>/weights/last.pt 热启动继续训练。
+  warm_start_from_last: true

@@ -10,7 +10,8 @@ if str(ROOT) not in sys.path:
 
 from scripts.ops.compress import cmd_distill, cmd_prune
 from scripts.ops.data import cmd_check, cmd_prepare
-from scripts.ops.model import cmd_export, cmd_predict, cmd_train, cmd_val
+from scripts.ops.model import cmd_benchmark, cmd_export, cmd_predict, cmd_train, cmd_val
+from scripts.ops.report import cmd_report
 from scripts.ops.system import cmd_clean
 
 
@@ -20,6 +21,8 @@ COMMANDS = {
     "train": cmd_train,
     "val": cmd_val,
     "predict": cmd_predict,
+    "benchmark": cmd_benchmark,
+    "report": cmd_report,
     "export": cmd_export,
     "distill": cmd_distill,
     "prune": cmd_prune,

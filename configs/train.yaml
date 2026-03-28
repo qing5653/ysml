@@ -19,3 +19,25 @@ adaptive_loss:
   cls_gain_max: 2.0
   fl_gamma_min: 1.0
   fl_gamma_max: 2.5
+
+# 预测配置（用于 scripts/cli.py predict）
+predict:
+  conf: 0.25
+  imgsz: 640
+  use_spot_guided: true
+
+# 基准配置（用于 scripts/cli.py benchmark）
+benchmark:
+  source_split: val
+  sample_limit: 100
+  conf: 0.25
+  imgsz: 640
+  use_spot_guided_options: [false, true]
+  target_fps: 25
+  output_csv: experiments/benchmark/fps.csv
+
+# 可追溯声明：由代码实现与实验结果驱动 report checklist。
+claims:
+  research_route: B
+  bifpn_implemented: false
+  target_effective_sparsity: 29.5

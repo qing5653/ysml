@@ -59,6 +59,8 @@ python3 scripts/cli.py <command>
 - `train`：训练
 - `val`：验证
 - `predict`：批量推理（默认走验证集路径）
+- `benchmark`：离线FPS基准（支持 guided on/off 对比）
+- `report`：生成实验报告（精度/体积/FPS汇总）
 - `export`：导出 ONNX
 - `distill`：蒸馏训练
 - `prune`：结构化剪枝 + 微调
@@ -96,6 +98,18 @@ python3 scripts/cli.py export
 ```
 导出 ONNX（dynamic + simplify）。
 
+### 4.6 FPS 基准
+```bash
+python3 scripts/cli.py benchmark
+```
+输出 CSV 默认路径：`experiments/benchmark/fps.csv`。
+
+### 4.7 生成实验报告
+```bash
+python3 scripts/cli.py report
+```
+输出 Markdown 报告：`docs/experiment_report.md`。
+
 ## 5. 数据增强链路
 
 执行：
@@ -121,11 +135,22 @@ python3 scripts/cli.py distill
 ```
 配置文件：[configs/distill.yaml](configs/distill.yaml)
 
+断点续跑相关开关：
+- `reuse_generated_data`：复用已生成蒸馏数据，避免重复构建伪标签数据集
+- `train.warm_start_from_last`：自动从 `experiments/<name*>/weights/last.pt` 热启动
+
 ### 6.2 剪枝
 ```bash
 python3 scripts/cli.py prune
 ```
 配置文件：[configs/prune.yaml](configs/prune.yaml)
+
+断点续跑相关开关：
+- `finetune.warm_start_from_last`：自动从 `experiments/<name*>/weights/last.pt` 热启动微调
+- `finetune.dedupe_labels_on_start`：微调前自动去重标签重复行
+
+证据链相关开关：
+- `stats_output`：剪枝统计输出文件（默认 `experiments/benchmark/prune_stats.json`）
 
 ## 7. UI 系统
 
@@ -150,6 +175,10 @@ python3 scripts/app.py
 - `data`：默认数据集 yaml
 - `name`：实验名（影响输出目录）
 - `adaptive_loss`：类别不平衡自适应损失参数
+- `predict`：预测阈值、分辨率、Spot-Guided 开关
+- `benchmark`：FPS 基准输入 split、样本数、输出路径
+- `claims.research_route`：科研叙事路线，`A`（声明 BiFPN）或 `B`（不声明未实现结构）
+- `claims.target_effective_sparsity`：剪枝有效稀疏率目标（用于 report checklist）
 
 ### 8.2 数据集配置
 文件：[configs/dataset.yaml](configs/dataset.yaml)
@@ -203,3 +232,11 @@ python3 scripts/cli.py train
 - 平均 FPS
 
 用以上指标即可支撑“样本稀缺优化、精度提升、轻量化与实时性”的研究结论。
+
+## 12. 论文与答辩模板
+
+- 实验章节模板：[docs/thesis_experiment_section_template.md](docs/thesis_experiment_section_template.md)
+- 答辩单页模板：[docs/defense_slide_template.md](docs/defense_slide_template.md)
+- 答辩第二页（架构与创新）模板：[docs/defense_architecture_slide_template.md](docs/defense_architecture_slide_template.md)
+- 答辩第三页（不足与未来工作）模板：[docs/defense_limitations_future_slide_template.md](docs/defense_limitations_future_slide_template.md)
+- 答辩全套单文件模板：[docs/defense_full_deck_template.md](docs/defense_full_deck_template.md)

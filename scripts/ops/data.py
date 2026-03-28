@@ -11,11 +11,13 @@ from scripts.ops.common import ROOT, YoloObject, load_yaml, read_labels_yolo, wr
 from src.yolo11_project.spot_guided import SpotGuidedConfig, apply_spot_guided_attention
 
 
+IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff"}
+
+
 def _count_images(path: Path) -> int:
     if not path.exists():
         return 0
-    exts = {".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff"}
-    return sum(1 for p in path.rglob("*") if p.suffix.lower() in exts)
+    return sum(1 for p in path.rglob("*") if p.suffix.lower() in IMAGE_EXTS)
 
 
 def _count_labels(path: Path) -> int:
@@ -52,21 +54,101 @@ def _mixup(
     return mixed, objs_a + objs_b
 
 
-def _copy_split(source_root: Path, target_root: Path, split_src: str, split_dst: str) -> None:
-    src_images = source_root / split_src / "images"
-    src_labels = source_root / split_src / "labels"
+def _copy_split(
+    source_root: Path,
+    target_root: Path,
+    src_images_rel: str,
+    src_labels_rel: str,
+    split_dst: str,
+    copy_original: bool,
+) -> None:
+    src_images = source_root / src_images_rel
+    src_labels = source_root / src_labels_rel
     dst_images = target_root / split_dst / "images"
     dst_labels = target_root / split_dst / "labels"
     dst_images.mkdir(parents=True, exist_ok=True)
     dst_labels.mkdir(parents=True, exist_ok=True)
 
+    if not copy_original:
+        return
+
     for image_path in sorted(src_images.glob("*")):
-        if image_path.suffix.lower() not in {".jpg", ".jpeg", ".png", ".bmp"}:
+        if image_path.suffix.lower() not in IMAGE_EXTS:
             continue
         label_path = src_labels / f"{image_path.stem}.txt"
         shutil.copy2(image_path, dst_images / image_path.name)
         if label_path.exists():
             shutil.copy2(label_path, dst_labels / label_path.name)
+
+
+def _scan_label_quality(labels_dir: Path, num_classes: int | None) -> dict[str, int]:
+    stats = {
+        "files": 0,
+        "valid_boxes": 0,
+        "empty_lines": 0,
+        "bad_cols": 0,
+        "bad_class": 0,
+        "bad_bbox": 0,
+        "bad_float": 0,
+    }
+    if not labels_dir.exists():
+        return stats
+
+    for label_file in labels_dir.glob("*.txt"):
+        stats["files"] += 1
+        for raw_line in label_file.read_text(encoding="utf-8").splitlines():
+            line = raw_line.strip()
+            if not line:
+                stats["empty_lines"] += 1
+                continue
+
+            parts = line.split()
+            if len(parts) != 5:
+                stats["bad_cols"] += 1
+                continue
+
+            try:
+                cls_id = int(parts[0])
+                x, y, w, h = [float(v) for v in parts[1:]]
+            except ValueError:
+                stats["bad_float"] += 1
+                continue
+
+            if num_classes is not None and (cls_id < 0 or cls_id >= num_classes):
+                stats["bad_class"] += 1
+                continue
+
+            if not (0.0 <= x <= 1.0 and 0.0 <= y <= 1.0 and 0.0 < w <= 1.0 and 0.0 < h <= 1.0):
+                stats["bad_bbox"] += 1
+                continue
+
+            x1 = x - w / 2.0
+            y1 = y - h / 2.0
+            x2 = x + w / 2.0
+            y2 = y + h / 2.0
+            if x1 < 0.0 or y1 < 0.0 or x2 > 1.0 or y2 > 1.0:
+                stats["bad_bbox"] += 1
+                continue
+
+            stats["valid_boxes"] += 1
+
+    return stats
+
+
+def _print_label_quality(prefix: str, labels_dir: Path, num_classes: int | None) -> None:
+    stats = _scan_label_quality(labels_dir, num_classes)
+    invalid = stats["bad_cols"] + stats["bad_class"] + stats["bad_bbox"] + stats["bad_float"]
+    print(f"  [{prefix}] label files: {stats['files']}, valid boxes: {stats['valid_boxes']}, invalid lines: {invalid}")
+    if stats["empty_lines"] > 0:
+        print(f"    empty lines: {stats['empty_lines']}")
+    if stats["bad_cols"] > 0:
+        print(f"    bad columns(!=5): {stats['bad_cols']}")
+    if stats["bad_float"] > 0:
+        print(f"    parse errors(non-numeric): {stats['bad_float']}")
+    if stats["bad_class"] > 0:
+        print(f"    out-of-range class id: {stats['bad_class']}")
+    if stats["bad_bbox"] > 0:
+        print(f"    invalid bbox(norm/range): {stats['bad_bbox']}")
 
 
 def cmd_check() -> None:
@@ -94,9 +176,20 @@ def cmd_check() -> None:
     active_train_lbl = _count_labels(active_root / "train" / "labels")
     active_val_img = _count_images(active_root / "val" / "images") + _count_images(active_root / "valid" / "images")
     active_val_lbl = _count_labels(active_root / "val" / "labels") + _count_labels(active_root / "valid" / "labels")
+    num_classes = None
+    if isinstance(active_cfg.get("names"), dict):
+        num_classes = len(active_cfg["names"])
+    elif isinstance(active_cfg.get("names"), list):
+        num_classes = len(active_cfg["names"])
+
     print("[active_dataset]")
     print(f"  train images/labels: {active_train_img}/{active_train_lbl}")
     print(f"  val(valid) images/labels: {active_val_img}/{active_val_lbl}")
+    _print_label_quality("train", active_root / "train" / "labels", num_classes)
+    if (active_root / "val" / "labels").exists():
+        _print_label_quality("val", active_root / "val" / "labels", num_classes)
+    if (active_root / "valid" / "labels").exists():
+        _print_label_quality("valid", active_root / "valid" / "labels", num_classes)
     print()
 
     datasets = registry.get("datasets", {})
@@ -150,14 +243,35 @@ def cmd_prepare() -> None:
     if target_root.exists():
         shutil.rmtree(target_root)
 
-    _copy_split(source_root, target_root, "train", "train")
-    _copy_split(source_root, target_root, "valid", "valid")
+    source_cfg = cfg["source"]
+    copy_original = bool(cfg["augmentation"].get("copy_original", True))
+
+    _copy_split(
+        source_root,
+        target_root,
+        source_cfg["train_images"],
+        source_cfg["train_labels"],
+        "train",
+        copy_original=copy_original,
+    )
+    _copy_split(
+        source_root,
+        target_root,
+        source_cfg["val_images"],
+        source_cfg["val_labels"],
+        "valid",
+        copy_original=True,
+    )
 
     aug_cfg = cfg["augmentation"]
     spot_cfg = cfg["spot_guided"]
+    src_train_images = source_root / source_cfg["train_images"]
+    src_train_labels = source_root / source_cfg["train_labels"]
     image_dir = target_root / "train" / "images"
     label_dir = target_root / "train" / "labels"
-    image_paths = sorted([p for p in image_dir.glob("*") if p.suffix.lower() in {".jpg", ".jpeg", ".png", ".bmp"}])
+    image_dir.mkdir(parents=True, exist_ok=True)
+    label_dir.mkdir(parents=True, exist_ok=True)
+    image_paths = sorted([p for p in src_train_images.glob("*") if p.suffix.lower() in IMAGE_EXTS])
 
     sg_cfg = SpotGuidedConfig(
         slic_segments=int(spot_cfg["slic_segments"]),
@@ -173,7 +287,7 @@ def cmd_prepare() -> None:
         if image is None:
             continue
 
-        objects = read_labels_yolo(label_dir / f"{image_path.stem}.txt")
+        objects = read_labels_yolo(src_train_labels / f"{image_path.stem}.txt")
 
         if aug_cfg.get("rotate_90", True):
             rot = cv2.rotate(image, cv2.ROTATE_90_CLOCKWISE)
@@ -208,8 +322,12 @@ def cmd_prepare() -> None:
 
             objs_a = read_labels_yolo(label_dir / f"{img_a_path.stem}.txt")
             objs_b = read_labels_yolo(label_dir / f"{img_b_path.stem}.txt")
+            if not objs_a:
+                objs_a = read_labels_yolo(src_train_labels / f"{img_a_path.stem}.txt")
+            if not objs_b:
+                objs_b = read_labels_yolo(src_train_labels / f"{img_b_path.stem}.txt")
             mixed, objs = _mixup(img_a, objs_a, img_b, objs_b, alpha)
             cv2.imwrite(str(image_dir / f"mixup_{idx:05d}.jpg"), mixed)
             write_labels_yolo(label_dir / f"mixup_{idx:05d}.txt", objs)
 
-    print(f"数据准备完成: {target_root}")
+    print(f"数据准备完成: {target_root} | copy_original={copy_original}")

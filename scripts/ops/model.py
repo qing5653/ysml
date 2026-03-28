@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import csv
 from pathlib import Path
 import time
 
@@ -9,6 +10,11 @@ from ultralytics import YOLO
 
 from scripts.ops.common import ROOT, load_yaml
 from src.yolo11_project.spot_guided import SpotGuidedConfig, apply_spot_guided_attention
+
+
+def _resolve_active_data_cfg_path(train_cfg: dict) -> Path:
+    data_key = "prepared_dataset_yaml" if train_cfg.get("use_prepared_dataset", False) else "data"
+    return ROOT / train_cfg[data_key]
 
 
 def _compute_class_distribution(dataset_yaml: Path, project_root: Path) -> list[int]:
@@ -88,8 +94,7 @@ def cmd_train() -> None:
     if not model_path.exists():
         raise FileNotFoundError(f"未找到模型权重: {model_path}")
 
-    data_key = "prepared_dataset_yaml" if cfg.get("use_prepared_dataset", False) else "data"
-    data_path = ROOT / cfg[data_key]
+    data_path = _resolve_active_data_cfg_path(cfg)
     if not data_path.exists():
         raise FileNotFoundError(f"未找到数据集配置: {data_path}")
 
@@ -132,7 +137,7 @@ def cmd_val() -> None:
     cfg = load_yaml(ROOT / "configs" / "train.yaml")
     ckpt_path = _resolve_latest_best_ckpt(ROOT / "experiments", str(cfg["name"]))
 
-    data_path = ROOT / cfg["data"]
+    data_path = _resolve_active_data_cfg_path(cfg)
     if not data_path.exists():
         raise FileNotFoundError(f"未找到数据集配置: {data_path}")
 
@@ -176,10 +181,14 @@ def cmd_predict() -> None:
     best_ckpt = _resolve_latest_best_ckpt(ROOT / "experiments", str(train_cfg["name"]))
     model_path = best_ckpt if best_ckpt.exists() else ROOT / train_cfg["model"]
 
-    data_key = "prepared_dataset_yaml" if train_cfg.get("use_prepared_dataset", False) else "data"
-    data_cfg_path = ROOT / train_cfg.get(data_key, "configs/dataset.yaml")
+    data_cfg_path = _resolve_active_data_cfg_path(train_cfg)
     data_cfg = load_yaml(data_cfg_path)
     source = ROOT / data_cfg["path"] / data_cfg["val"]
+
+    predict_cfg = train_cfg.get("predict", {})
+    predict_conf = float(predict_cfg.get("conf", 0.25))
+    predict_imgsz = int(predict_cfg.get("imgsz", train_cfg.get("imgsz", 640)))
+    use_guided = bool(predict_cfg.get("use_spot_guided", True))
 
     prepare_cfg = load_yaml(ROOT / "configs" / "prepare.yaml")
     sg = prepare_cfg.get("spot_guided", {})
@@ -210,13 +219,114 @@ def cmd_predict() -> None:
         image = cv2.imread(str(image_path))
         if image is None:
             continue
-        image, _ = apply_spot_guided_attention(image, sg_cfg)
-        result = model.predict(image, imgsz=640, conf=0.25, verbose=False)[0]
+        if use_guided:
+            image, _ = apply_spot_guided_attention(image, sg_cfg)
+        result = model.predict(image, imgsz=predict_imgsz, conf=predict_conf, verbose=False)[0]
         cv2.imwrite(str(out_dir / image_path.name), result.plot())
 
     elapsed = max(time.perf_counter() - start, 1e-6)
     fps = len(image_paths) / elapsed
     print(f"预测完成: 数量={len(image_paths)}, 平均FPS={fps:.2f}, 输出目录={out_dir}")
+
+
+def cmd_benchmark() -> None:
+    train_cfg = load_yaml(ROOT / "configs" / "train.yaml")
+    benchmark_cfg = train_cfg.get("benchmark", {})
+
+    best_ckpt = _resolve_latest_best_ckpt(ROOT / "experiments", str(train_cfg["name"]))
+    model_path = best_ckpt if best_ckpt.exists() else ROOT / train_cfg["model"]
+    if not model_path.exists():
+        raise FileNotFoundError(f"未找到基准模型: {model_path}")
+
+    data_cfg_path = _resolve_active_data_cfg_path(train_cfg)
+    data_cfg = load_yaml(data_cfg_path)
+    source_split = str(benchmark_cfg.get("source_split", "val"))
+    source_rel = data_cfg.get(source_split)
+    if source_rel is None:
+        raise KeyError(f"数据集配置中不存在 split={source_split}")
+
+    source = ROOT / data_cfg["path"] / source_rel
+    if not source.exists():
+        raise FileNotFoundError(f"未找到基准输入目录: {source}")
+
+    sample_limit = int(benchmark_cfg.get("sample_limit", 100))
+    conf = float(benchmark_cfg.get("conf", 0.25))
+    imgsz = int(benchmark_cfg.get("imgsz", train_cfg.get("imgsz", 640)))
+    guided_options = benchmark_cfg.get("use_spot_guided_options", [False, True])
+    output_csv = ROOT / str(benchmark_cfg.get("output_csv", "experiments/benchmark/fps.csv"))
+    output_csv.parent.mkdir(parents=True, exist_ok=True)
+
+    prepare_cfg = load_yaml(ROOT / "configs" / "prepare.yaml")
+    sg = prepare_cfg.get("spot_guided", {})
+    sg_cfg = SpotGuidedConfig(
+        slic_segments=int(sg.get("slic_segments", 200)),
+        slic_compactness=float(sg.get("slic_compactness", 12.0)),
+        glcm_distances=tuple(int(v) for v in sg.get("glcm_distances", [1, 2])),
+        glcm_angles=tuple(float(v) for v in sg.get("glcm_angles", [0.0, 0.785398, 1.570796])),
+        entropy_threshold_quantile=float(sg.get("entropy_threshold_quantile", 0.75)),
+        blend_alpha=float(sg.get("blend_alpha", 0.45)),
+    )
+
+    image_paths = [p for p in sorted(source.glob("*")) if p.suffix.lower() in {".jpg", ".jpeg", ".png", ".bmp"}]
+    if not image_paths:
+        raise RuntimeError(f"目录中没有图像文件: {source}")
+    if sample_limit > 0:
+        image_paths = image_paths[:sample_limit]
+
+    model = YOLO(str(model_path))
+    rows: list[dict[str, float | int | str]] = []
+
+    for use_guided in guided_options:
+        begin = time.perf_counter()
+        processed = 0
+
+        for image_path in image_paths:
+            image = cv2.imread(str(image_path))
+            if image is None:
+                continue
+            if bool(use_guided):
+                image, _ = apply_spot_guided_attention(image, sg_cfg)
+            _ = model.predict(image, imgsz=imgsz, conf=conf, verbose=False)[0]
+            processed += 1
+
+        elapsed = max(time.perf_counter() - begin, 1e-6)
+        fps = processed / elapsed
+        rows.append(
+            {
+                "timestamp": int(time.time()),
+                "model": str(model_path),
+                "source": str(source),
+                "images": processed,
+                "imgsz": imgsz,
+                "conf": conf,
+                "use_spot_guided": bool(use_guided),
+                "fps": round(fps, 4),
+                "elapsed_sec": round(elapsed, 4),
+            }
+        )
+        print(
+            f"benchmark: guided={bool(use_guided)} | images={processed} | imgsz={imgsz} | conf={conf} | fps={fps:.2f}"
+        )
+
+    with output_csv.open("w", encoding="utf-8", newline="") as f:
+        writer = csv.DictWriter(
+            f,
+            fieldnames=[
+                "timestamp",
+                "model",
+                "source",
+                "images",
+                "imgsz",
+                "conf",
+                "use_spot_guided",
+                "fps",
+                "elapsed_sec",
+            ],
+        )
+        writer.writeheader()
+        writer.writerows(rows)
+
+    print(f"基准完成，结果已写入: {output_csv}")
 
 
 def cmd_export() -> None:
