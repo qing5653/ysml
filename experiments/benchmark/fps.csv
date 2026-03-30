@@ -1,0 +1,3 @@
+timestamp,model,source,images,imgsz,conf,use_spot_guided,fps,elapsed_sec
+1774702648,/ysml/experiments/yolo11_spot_bifpn/weights/best.pt,/ysml/data/fa031-main/NEU-DET/valid/images,30,640,0.25,False,40.1406,0.7474
+1774702651,/ysml/experiments/yolo11_spot_bifpn/weights/best.pt,/ysml/data/fa031-main/NEU-DET/valid/images,30,640,0.25,True,9.9085,3.0277

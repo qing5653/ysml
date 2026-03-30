@@ -1,0 +1,10 @@
+{
+  "generated_at": "2026-03-28 13:05:07",
+  "channel_prune_ratio": 0.3,
+  "total_before": 2591010,
+  "total_after": 2591010,
+  "non_zero_before": 2591003,
+  "non_zero_after": 1821362,
+  "effective_sparsity": 29.70436545229782,
+  "source": "quick_recompute_without_finetune"
+}
